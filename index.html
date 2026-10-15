@@ -1,0 +1,867 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Akif & Ahmet: Çarpım Tablosu Futbol Şampiyonası</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      font-family: 'Comic Sans MS', 'Nunito', 'Fredoka', cursive, sans-serif;
+    }
+    body {
+      background: linear-gradient(135deg, #022c22, #0f172a);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 8px;
+      color: #fff;
+    }
+    .game-container {
+      width: 100%;
+      max-width: 580px;
+      background: #0f172a;
+      border-radius: 24px;
+      padding: 14px;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+      border: 3px solid #10b981;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    /* Scoreboard */
+    .scoreboard {
+      background: #1e293b;
+      border-radius: 16px;
+      padding: 8px 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border: 1px solid #334155;
+    }
+    .score-item {
+      text-align: center;
+      padding: 4px 8px;
+      border-radius: 10px;
+      transition: all 0.2s;
+    }
+    .score-item.active-turn {
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid #facc15;
+    }
+    .score-label {
+      font-size: 10px;
+      color: #94a3b8;
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+    .score-val {
+      font-size: 20px;
+      font-weight: 800;
+      color: #34d399;
+    }
+    .score-val.akif { color: #f87171; }
+    .score-val.ahmet { color: #60a5fa; }
+    .score-val.points { color: #fbbf24; }
+    .sound-btn {
+      background: #334155;
+      border: none;
+      color: #fbbf24;
+      font-size: 18px;
+      padding: 6px 10px;
+      border-radius: 10px;
+      cursor: pointer;
+    }
+
+    /* Stadium */
+    .stadium {
+      position: relative;
+      height: 250px;
+      border-radius: 18px;
+      overflow: hidden;
+      background: linear-gradient(to bottom, #0284c7 0%, #15803d 30%, #166534 100%);
+      border: 3px solid #34d399;
+      box-shadow: inset 0 0 20px rgba(0,0,0,0.5);
+    }
+    .stadium-header {
+      background: rgba(0,0,0,0.55);
+      font-size: 11px;
+      font-weight: 800;
+      color: #fef08a;
+      letter-spacing: 0.5px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 10px;
+    }
+    .turn-badge {
+      background: #ef4444;
+      color: #fff;
+      font-size: 11px;
+      font-weight: 900;
+      padding: 2px 10px;
+      border-radius: 20px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+      animation: pulseTurn 0.8s infinite alternate;
+    }
+    @keyframes pulseTurn {
+      0% { transform: scale(1); }
+      100% { transform: scale(1.08); }
+    }
+    .goal-frame {
+      position: absolute;
+      top: 36px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 220px;
+      height: 96px;
+      border-top: 6px solid #fff;
+      border-left: 6px solid #fff;
+      border-right: 6px solid #fff;
+      background: rgba(255,255,255,0.08);
+      background-image: 
+        linear-gradient(to right, rgba(255,255,255,0.3) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(255,255,255,0.3) 1px, transparent 1px);
+      background-size: 12px 12px;
+      box-shadow: inset 0 0 10px rgba(0,0,0,0.4);
+    }
+
+    /* Goalkeeper with shuffle */
+    .goalkeeper {
+      position: absolute;
+      top: 52px;
+      left: 50%;
+      transform: translateX(-50%);
+      transition: all 0.35s ease;
+      z-index: 5;
+      animation: goalieShuffle 2.4s infinite ease-in-out;
+    }
+    @keyframes goalieShuffle {
+      0%, 100% { transform: translateX(-50%) translateY(0); }
+      25% { transform: translateX(calc(-50% - 18px)) translateY(-2px); }
+      75% { transform: translateX(calc(-50% + 18px)) translateY(-2px); }
+    }
+    .goalkeeper.dive-left { animation: none; transform: translate(-80px, 15px) rotate(-35deg); }
+    .goalkeeper.dive-right { animation: none; transform: translate(45px, 15px) rotate(35deg); }
+
+    /* Players Akif and Ahmet */
+    .player-wrap {
+      position: absolute;
+      bottom: 10px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+      z-index: 6;
+    }
+    .player-akif { left: 14%; }
+    .player-ahmet { right: 14%; }
+
+    /* Active shooter steps forward to penalty spot */
+    .player-akif.active-shooter {
+      left: 28%;
+      animation: playerBounce 0.9s infinite ease-in-out;
+    }
+    .player-ahmet.active-shooter {
+      right: 28%;
+      animation: playerBounce 0.9s infinite ease-in-out;
+    }
+
+    /* Supporting player sway */
+    .player-wrap.supporting {
+      animation: playerSway 1.4s infinite ease-in-out;
+    }
+
+    /* Kicking forward dash */
+    .player-akif.kicking {
+      transform: translateX(45px) translateY(-8px) scale(1.15);
+      animation: none;
+    }
+    .player-ahmet.kicking {
+      transform: translateX(-45px) translateY(-8px) scale(1.15);
+      animation: none;
+    }
+
+    /* Goal celebration meetup */
+    .player-akif.celebrate {
+      left: 36%;
+      animation: celebrateJump 0.5s infinite alternate ease-in-out;
+    }
+    .player-ahmet.celebrate {
+      right: 36%;
+      animation: celebrateJump 0.5s infinite alternate ease-in-out;
+    }
+
+    @keyframes playerBounce {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-7px) scale(1.03); }
+    }
+    @keyframes playerSway {
+      0%, 100% { transform: translateY(0) rotate(-3deg); }
+      50% { transform: translateY(-4px) rotate(3deg); }
+    }
+    @keyframes celebrateJump {
+      0% { transform: translateY(0) scale(1.1); }
+      100% { transform: translateY(-22px) scale(1.18) rotate(5deg); }
+    }
+
+    .player-tag {
+      font-size: 10px;
+      font-weight: 800;
+      padding: 1px 7px;
+      border-radius: 12px;
+      margin-bottom: 2px;
+      border: 1px solid #fff;
+      white-space: nowrap;
+    }
+    .player-akif .player-tag { background: #dc2626; color: #fff; }
+    .player-ahmet .player-tag { background: #2563eb; color: #fff; }
+    .shooter-indicator {
+      font-size: 9px;
+      background: #facc15;
+      color: #0f172a;
+      font-weight: 900;
+      padding: 1px 6px;
+      border-radius: 10px;
+      margin-bottom: 2px;
+    }
+
+    /* Football Ball */
+    .ball {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 26px;
+      transition: all 0.45s cubic-bezier(0.2, 0.8, 0.2, 1);
+      z-index: 10;
+      filter: drop-shadow(0 4px 5px rgba(0,0,0,0.5));
+    }
+    .ball.shoot-goal-left { transform: translate(-70px, -135px) scale(0.7) rotate(720deg); }
+    .ball.shoot-goal-right { transform: translate(45px, -135px) scale(0.7) rotate(720deg); }
+    .ball.shoot-miss { transform: translate(-30px, -80px) scale(0.85) rotate(360deg); }
+
+    /* Overlay banner */
+    .banner {
+      position: absolute;
+      inset: 0;
+      background: rgba(0,0,0,0.55);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 20;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s;
+    }
+    .banner.active { opacity: 1; }
+    .banner-text {
+      font-size: 32px;
+      font-weight: 900;
+      padding: 8px 20px;
+      border-radius: 16px;
+      text-transform: uppercase;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+      border: 3px solid #fff;
+    }
+    .banner.goal .banner-text {
+      background: linear-gradient(to right, #f59e0b, #eab308);
+      color: #1e3a1e;
+    }
+    .banner.miss .banner-text {
+      background: linear-gradient(to right, #dc2626, #ef4444);
+      color: #fff;
+    }
+
+    /* Story box */
+    .story-box {
+      background: linear-gradient(to right, #ea580c, #f97316);
+      padding: 8px 12px;
+      border-radius: 14px;
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 1.35;
+      border: 2px solid #fdba74;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+    }
+
+    /* Question Panel */
+    .question-panel {
+      background: #ffffff;
+      color: #1e293b;
+      border-radius: 20px;
+      padding: 12px;
+      text-align: center;
+      border: 4px solid #10b981;
+    }
+    .math-formula {
+      font-size: 42px;
+      font-weight: 900;
+      color: #0f172a;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 10px;
+      margin: 4px 0 10px;
+    }
+    .math-box {
+      width: 66px;
+      height: 58px;
+      background: #ecfdf5;
+      border: 3px dashed #10b981;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #047857;
+      font-size: 36px;
+    }
+
+    /* Options buttons */
+    .options-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .option-btn {
+      background: #f8fafc;
+      border: 2px solid #cbd5e1;
+      border-bottom: 5px solid #94a3b8;
+      border-radius: 14px;
+      padding: 12px 14px;
+      font-size: 26px;
+      font-weight: 800;
+      color: #1e293b;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      transition: all 0.1s;
+    }
+    .option-btn:hover { background: #f1f5f9; border-color: #38bdf8; }
+    .option-btn:active { transform: translateY(3px); border-bottom-width: 2px; }
+    .option-btn.correct { background: #10b981; color: #fff; border-color: #059669; border-bottom-color: #047857; }
+    .option-btn.wrong { background: #ef4444; color: #fff; border-color: #dc2626; border-bottom-color: #b91c1c; }
+    .badge {
+      background: #e2e8f0;
+      color: #475569;
+      font-size: 12px;
+      font-weight: 900;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .option-btn.correct .badge, .option-btn.wrong .badge { background: rgba(255,255,255,0.3); color: #fff; }
+    #confettiCanvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      pointer-events: none;
+      z-index: 99;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="confettiCanvas"></canvas>
+
+  <div class="game-container">
+    <div class="scoreboard">
+      <div class="score-item active-turn" id="akifScoreCard">
+        <div class="score-label">Akif #7</div>
+        <div class="score-val akif" id="scoreAkif">0 GOL</div>
+      </div>
+      <div class="score-item">
+        <div class="score-label">Toplam Puan</div>
+        <div class="score-val points" id="scorePoints">0</div>
+      </div>
+      <div class="score-item" id="ahmetScoreCard">
+        <div class="score-label">Ahmet #10</div>
+        <div class="score-val ahmet" id="scoreAhmet">0 GOL</div>
+      </div>
+      <button class="sound-btn" id="soundBtn" onclick="toggleSound()">🔊</button>
+    </div>
+
+    <div class="stadium">
+      <div class="stadium-header">
+        <span>🏟️ AKİF & AHMET FUTBOL SAHASI</span>
+        <span class="turn-badge" id="turnBadge">Şutör: AKİF #7</span>
+      </div>
+      <div class="goal-frame"></div>
+      
+      <!-- Goalkeeper SVG -->
+      <div class="goalkeeper" id="goalie">
+        <svg width="56" height="74" viewBox="0 0 100 130">
+          <ellipse cx="50" cy="125" rx="25" ry="5" fill="rgba(0,0,0,0.3)" />
+          <rect x="36" y="88" width="9" height="28" rx="4" fill="#0f172a" />
+          <rect x="55" y="88" width="9" height="28" rx="4" fill="#0f172a" />
+          <path d="M 30 46 C 30 40 36 38 50 38 C 64 38 70 40 70 46 L 66 88 L 34 88 Z" fill="#84cc16" />
+          <circle cx="10" cy="30" r="8" fill="#f97316" stroke="#fff" strokeWidth="2" />
+          <circle cx="90" cy="30" r="8" fill="#f97316" stroke="#fff" strokeWidth="2" />
+          <circle cx="50" cy="24" r="16" fill="#f5d0b0" />
+          <path d="M 34 20 Q 50 12 66 20" stroke="#15803d" strokeWidth="7" fill="none" />
+          <circle cx="45" cy="24" r="2" fill="#0f172a" />
+          <circle cx="55" cy="24" r="2" fill="#0f172a" />
+        </svg>
+      </div>
+
+      <!-- Akif Player SVG -->
+      <div class="player-wrap player-akif active-shooter" id="playerAkif">
+        <div class="shooter-indicator" id="akifIndicator">ŞUT SIRASI</div>
+        <div class="player-tag">Akif #7</div>
+        <svg width="60" height="82" viewBox="0 0 100 135">
+          <ellipse cx="50" cy="130" rx="26" ry="6" fill="rgba(0,0,0,0.3)" />
+          <rect x="36" y="94" width="9" height="26" rx="4" fill="#e2b184" />
+          <rect x="36" y="104" width="9" height="16" fill="#dc2626" rx="2" />
+          <rect x="54" y="94" width="9" height="26" rx="4" fill="#e2b184" />
+          <rect x="54" y="104" width="9" height="16" fill="#dc2626" rx="2" />
+          <path d="M 32 78 L 68 78 L 66 96 L 53 96 L 50 86 L 47 96 L 34 96 Z" fill="#ffffff" />
+          <path d="M 28 48 C 28 44 34 40 50 40 C 66 40 72 44 72 48 L 68 80 L 32 80 Z" fill="#dc2626" />
+          <text x="50" y="68" fill="#fbbf24" fontSize="20" fontWeight="900" textAnchor="middle">7</text>
+          <circle cx="50" cy="27" r="17" fill="#e2b184" />
+          <path d="M 33 24 C 33 10 42 6 50 6 C 58 6 67 10 67 24 Z" fill="#6b3e26" />
+          <circle cx="44" cy="25" r="2" fill="#1e293b" />
+          <circle cx="56" cy="25" r="2" fill="#1e293b" />
+          <path d="M 44 32 Q 50 37 56 32" stroke="#78350f" strokeWidth="2" fill="none" />
+        </svg>
+      </div>
+
+      <!-- Ahmet Player SVG -->
+      <div class="player-wrap player-ahmet supporting" id="playerAhmet">
+        <div class="shooter-indicator" id="ahmetIndicator" style="display:none;">ŞUT SIRASI</div>
+        <div class="player-tag">Ahmet #10</div>
+        <svg width="60" height="82" viewBox="0 0 100 135">
+          <ellipse cx="50" cy="130" rx="26" ry="6" fill="rgba(0,0,0,0.3)" />
+          <rect x="36" y="94" width="9" height="26" rx="4" fill="#e2b184" />
+          <rect x="36" y="104" width="9" height="16" fill="#2563eb" rx="2" />
+          <rect x="54" y="94" width="9" height="26" rx="4" fill="#e2b184" />
+          <rect x="54" y="104" width="9" height="16" fill="#2563eb" rx="2" />
+          <path d="M 32 78 L 68 78 L 66 96 L 53 96 L 50 86 L 47 96 L 34 96 Z" fill="#1e293b" />
+          <path d="M 28 48 C 28 44 34 40 50 40 C 66 40 72 44 72 48 L 68 80 L 32 80 Z" fill="#2563eb" />
+          <text x="50" y="69" fill="#fbbf24" fontSize="18" fontWeight="900" textAnchor="middle">10</text>
+          <circle cx="50" cy="27" r="17" fill="#e2b184" />
+          <path d="M 32 23 C 32 9 40 5 50 5 C 60 5 68 9 68 23 Z" fill="#1c1917" />
+          <rect x="33" y="16" width="34" height="4" fill="#facc15" />
+          <circle cx="44" cy="26" r="2" fill="#1e293b" />
+          <circle cx="56" cy="26" r="2" fill="#1e293b" />
+          <path d="M 43 32 Q 50 38 57 32" stroke="#1d4ed8" strokeWidth="2" fill="none" />
+        </svg>
+      </div>
+
+      <!-- Football Ball -->
+      <div class="ball" id="football">⚽</div>
+
+      <!-- Goal/Miss Banner -->
+      <div class="banner" id="banner">
+        <div class="banner-text" id="bannerText">GOOOL!</div>
+      </div>
+    </div>
+
+    <!-- Story Box -->
+    <div class="story-box" id="storyText">
+      Ahmet topu sürerken Akif'e nefis bir pas attı! Şimdi Akif şut çekecek, soruyu bil golü at!
+    </div>
+
+    <!-- Question Box -->
+    <div class="question-panel">
+      <div style="font-size: 13px; font-weight: 700; color: #047857; margin-bottom: 4px;" id="subHint">
+        Haydi şutu çek!
+      </div>
+      <div class="math-formula">
+        <span id="num1">4</span>
+        <span style="color: #10b981;">×</span>
+        <span id="num2">5</span>
+        <span style="color: #94a3b8;">=</span>
+        <div class="math-box" id="ansBox">?</div>
+      </div>
+
+      <div class="options-grid" id="optionsContainer">
+        <!-- Default fallback buttons -->
+        <button class="option-btn" onclick="handleOptionClick(0)"><span class="badge">A</span> <span>16</span> <span>⚽</span></button>
+        <button class="option-btn" onclick="handleOptionClick(1)"><span class="badge">B</span> <span>20</span> <span>⚽</span></button>
+        <button class="option-btn" onclick="handleOptionClick(2)"><span class="badge">C</span> <span>24</span> <span>⚽</span></button>
+        <button class="option-btn" onclick="handleOptionClick(3)"><span class="badge">D</span> <span>25</span> <span>⚽</span></button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let audioCtx = null;
+    let isMuted = false;
+
+    function initAudio() {
+      try {
+        if (!audioCtx) {
+          const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+          if (AudioContextClass) audioCtx = new AudioContextClass();
+        }
+        if (audioCtx && audioCtx.state === 'suspended') {
+          audioCtx.resume();
+        }
+      } catch (e) {}
+    }
+
+    function toggleSound() {
+      isMuted = !isMuted;
+      const btn = document.getElementById('soundBtn');
+      if (btn) btn.innerText = isMuted ? '🔇' : '🔊';
+    }
+
+    function playKickSound() {
+      if (isMuted) return;
+      initAudio();
+      try {
+        if (!audioCtx) return;
+        const t = audioCtx.currentTime;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.frequency.setValueAtTime(130, t);
+        osc.frequency.exponentialRampToValueAtTime(30, t + 0.15);
+        gain.gain.setValueAtTime(0.3, t);
+        gain.gain.exponentialRampToValueAtTime(0.01, t + 0.18);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(t);
+        osc.stop(t + 0.2);
+      } catch(e) {}
+    }
+
+    function playGoalSound() {
+      if (isMuted) return;
+      initAudio();
+      try {
+        if (!audioCtx) return;
+        const t = audioCtx.currentTime;
+        [523.25, 659.25, 783.99, 1046.5].forEach(function(f, idx) {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          const st = t + idx * 0.09;
+          osc.frequency.setValueAtTime(f, st);
+          gain.gain.setValueAtTime(0, st);
+          gain.gain.linearRampToValueAtTime(0.2, st + 0.02);
+          gain.gain.exponentialRampToValueAtTime(0.001, st + 0.35);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(st);
+          osc.stop(st + 0.4);
+        });
+      } catch(e) {}
+    }
+
+    function playMissSound() {
+      if (isMuted) return;
+      initAudio();
+      try {
+        if (!audioCtx) return;
+        const t = audioCtx.currentTime;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(200, t);
+        osc.frequency.exponentialRampToValueAtTime(60, t + 0.3);
+        gain.gain.setValueAtTime(0.2, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(t);
+        osc.stop(t + 0.35);
+      } catch(e) {}
+    }
+
+    // Confetti System
+    let canvas, ctx;
+    let particles = [];
+    let isConfettiRunning = false;
+
+    function initCanvas() {
+      try {
+        canvas = document.getElementById('confettiCanvas');
+        if (canvas) {
+          ctx = canvas.getContext('2d');
+          canvas.width = window.innerWidth;
+          canvas.height = window.innerHeight;
+          window.addEventListener('resize', function() {
+            if (canvas) {
+              canvas.width = window.innerWidth;
+              canvas.height = window.innerHeight;
+            }
+          });
+        }
+      } catch(e) {}
+    }
+
+    function triggerConfetti() {
+      if (!ctx || !canvas) return;
+      for (let i = 0; i < 45; i++) {
+        particles.push({
+          x: canvas.width / 2,
+          y: canvas.height * 0.4,
+          vx: (Math.random() - 0.5) * 12,
+          vy: (Math.random() - 0.7) * 13,
+          size: Math.random() * 7 + 4,
+          color: ['#10b981', '#f59e0b', '#3b82f6', '#ef4444', '#ec4899'][Math.floor(Math.random() * 5)],
+          life: 55
+        });
+      }
+      if (!isConfettiRunning) {
+        isConfettiRunning = true;
+        animateConfetti();
+      }
+    }
+
+    function animateConfetti() {
+      if (!ctx || !canvas || particles.length === 0) {
+        if (ctx && canvas) ctx.clearRect(0, 0, canvas.width, canvas.height);
+        isConfettiRunning = false;
+        return;
+      }
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.x += p.vx;
+        p.y += p.vy;
+        p.vy += 0.35;
+        p.life--;
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+        if (p.life <= 0) particles.splice(i, 1);
+      }
+      requestAnimationFrame(animateConfetti);
+    }
+
+    // Game Logic
+    let currentShooter = 'akif';
+    let akifGoals = 0;
+    let ahmetGoals = 0;
+    let points = 0;
+    let streak = 0;
+    let currentQuestion = null;
+    let isProcessing = false;
+
+    const AKIF_STORIES = [
+      "Ahmet topu sürerken Akif'e mükemmel bir pas verdi! Şimdi Akif şut çekecek, doğru cevabı seç!",
+      "Ahmet harika bir çalım attı ve topu Akif'in önüne bıraktı! Haydi Akif, kaleye sert bir şut!",
+      "Ahmet orta sahadan Akif'e nefis bir ara pası attı! Akif ceza sahasına fırtına gibi girdi!",
+      "Ahmet ile Akif duvar pası yaptı! Ahmet 'Vur Akif!' dedi, Akif şuta hazırlanıyor!"
+    ];
+
+    const AHMET_STORIES = [
+      "Akif topu sürerken Ahmet'e nefis bir pas attı! Şimdi Ahmet şut çekecek, soruyu bil golü at!",
+      "Akif çalımlarla ceza yayına indi ve topu Ahmet'in koşu yoluna bıraktı! Vur Ahmet!",
+      "Akif sol kanattan fırladı ve Ahmet'e harika bir orta kesti! Ahmet kaleciyle karşı karşıya!",
+      "Akif serbest vuruşu hemen kullandı, Ahmet ceza sahasında topla buluştu! Doksana as Ahmet!"
+    ];
+
+    function updateTurnUI() {
+      const turnBadge = document.getElementById('turnBadge');
+      const akifScoreCard = document.getElementById('akifScoreCard');
+      const ahmetScoreCard = document.getElementById('ahmetScoreCard');
+      const akif = document.getElementById('playerAkif');
+      const ahmet = document.getElementById('playerAhmet');
+      const akifInd = document.getElementById('akifIndicator');
+      const ahmetInd = document.getElementById('ahmetIndicator');
+
+      if (currentShooter === 'akif') {
+        if (turnBadge) {
+          turnBadge.innerText = 'Şutör: AKİF #7';
+          turnBadge.style.background = '#ef4444';
+          turnBadge.style.color = '#fff';
+        }
+        if (akifScoreCard) akifScoreCard.className = 'score-item active-turn';
+        if (ahmetScoreCard) ahmetScoreCard.className = 'score-item';
+        if (akif) akif.className = 'player-wrap player-akif active-shooter';
+        if (ahmet) ahmet.className = 'player-wrap player-ahmet supporting';
+        if (akifInd) akifInd.style.display = 'block';
+        if (ahmetInd) ahmetInd.style.display = 'none';
+      } else {
+        if (turnBadge) {
+          turnBadge.innerText = 'Şutör: AHMET #10';
+          turnBadge.style.background = '#3b82f6';
+          turnBadge.style.color = '#fff';
+        }
+        if (akifScoreCard) akifScoreCard.className = 'score-item';
+        if (ahmetScoreCard) ahmetScoreCard.className = 'score-item active-turn';
+        if (ahmet) ahmet.className = 'player-wrap player-ahmet active-shooter';
+        if (akif) akif.className = 'player-wrap player-akif supporting';
+        if (ahmetInd) ahmetInd.style.display = 'block';
+        if (akifInd) akifInd.style.display = 'none';
+      }
+    }
+
+    function nextQuestion() {
+      isProcessing = false;
+      const football = document.getElementById('football');
+      const goalie = document.getElementById('goalie');
+      const banner = document.getElementById('banner');
+      const ansBox = document.getElementById('ansBox');
+
+      if (football) football.className = 'ball';
+      if (goalie) goalie.className = 'goalkeeper';
+      if (banner) banner.className = 'banner';
+      if (ansBox) ansBox.innerText = '?';
+
+      updateTurnUI();
+
+      const num1 = Math.floor(Math.random() * 8) + 2;
+      const num2 = Math.floor(Math.random() * 9) + 2;
+      const correct = num1 * num2;
+
+      const opts = new Set([correct]);
+      while (opts.size < 4) {
+        const offset = (Math.random() > 0.5 ? 1 : -1) * (Math.floor(Math.random() * 4) + 1) * num1;
+        const fake = correct + offset;
+        if (fake > 0 && fake !== correct) opts.add(fake);
+        else opts.add(correct + Math.floor(Math.random() * 8) + 1);
+      }
+
+      const optionsArray = Array.from(opts).sort(function() { return Math.random() - 0.5; });
+      const storyPool = currentShooter === 'akif' ? AKIF_STORIES : AHMET_STORIES;
+
+      currentQuestion = {
+        num1: num1,
+        num2: num2,
+        correct: correct,
+        options: optionsArray,
+        story: storyPool[Math.floor(Math.random() * storyPool.length)]
+      };
+
+      const n1 = document.getElementById('num1');
+      const n2 = document.getElementById('num2');
+      const subHint = document.getElementById('subHint');
+      const storyText = document.getElementById('storyText');
+
+      if (n1) n1.innerText = num1;
+      if (n2) n2.innerText = num2;
+      if (subHint) subHint.innerText = num1 + ' tane ' + num2 + ' kaç eder?';
+      if (storyText) storyText.innerText = currentQuestion.story;
+
+      const container = document.getElementById('optionsContainer');
+      if (container) {
+        container.innerHTML = '';
+        const letters = ['A', 'B', 'C', 'D'];
+
+        optionsArray.forEach(function(val, idx) {
+          const btn = document.createElement('button');
+          btn.className = 'option-btn';
+          btn.innerHTML = '<span class="badge">' + letters[idx] + '</span> <span>' + val + '</span> <span>⚽</span>';
+          btn.onclick = function() { handleAnswer(val, btn); };
+          container.appendChild(btn);
+        });
+      }
+    }
+
+    function handleOptionClick(index) {
+      if (!currentQuestion) return;
+      const val = currentQuestion.options[index];
+      const container = document.getElementById('optionsContainer');
+      const btn = container ? container.children[index] : null;
+      handleAnswer(val, btn);
+    }
+
+    function handleAnswer(selectedVal, clickedBtn) {
+      if (isProcessing) return;
+      isProcessing = true;
+
+      const isCorrect = selectedVal === currentQuestion.correct;
+      const football = document.getElementById('football');
+      const goalie = document.getElementById('goalie');
+      const akif = document.getElementById('playerAkif');
+      const ahmet = document.getElementById('playerAhmet');
+      const banner = document.getElementById('banner');
+      const bannerText = document.getElementById('bannerText');
+      const ansBox = document.getElementById('ansBox');
+
+      if (ansBox) ansBox.innerText = selectedVal;
+      playKickSound();
+
+      if (currentShooter === 'akif') {
+        if (akif) akif.classList.add('kicking');
+      } else {
+        if (ahmet) ahmet.classList.add('kicking');
+      }
+
+      if (isCorrect) {
+        if (currentShooter === 'akif') {
+          akifGoals++;
+        } else {
+          ahmetGoals++;
+        }
+        streak++;
+        points += 100 + (streak > 1 ? streak * 20 : 0);
+        if (clickedBtn) clickedBtn.classList.add('correct');
+
+        const shootLeft = Math.random() > 0.5;
+        if (football) football.classList.add(shootLeft ? 'shoot-goal-left' : 'shoot-goal-right');
+        if (goalie) goalie.classList.add(shootLeft ? 'dive-right' : 'dive-left');
+
+        setTimeout(function() {
+          playGoalSound();
+          triggerConfetti();
+          if (akif) akif.className = 'player-wrap player-akif celebrate';
+          if (ahmet) ahmet.className = 'player-wrap player-ahmet celebrate';
+          if (bannerText) bannerText.innerText = currentShooter === 'akif' ? 'AKİF ATTI! GOOOL!' : 'AHMET ATTI! GOOOL!';
+          if (banner) banner.className = 'banner goal active';
+        }, 300);
+
+        setTimeout(function() {
+          currentShooter = currentShooter === 'akif' ? 'ahmet' : 'akif';
+          nextQuestion();
+        }, 2100);
+      } else {
+        streak = 0;
+        if (clickedBtn) clickedBtn.classList.add('wrong');
+        if (football) football.classList.add('shoot-miss');
+        if (goalie) goalie.classList.add('dive-left');
+
+        setTimeout(function() {
+          playMissSound();
+          if (bannerText) bannerText.innerText = 'KALECİ KURTARDI!';
+          if (banner) banner.className = 'banner miss active';
+          const storyText = document.getElementById('storyText');
+          if (storyText) {
+            storyText.innerText = 
+              (currentShooter === 'akif' ? 'Ahmet: "Üzülme Akif, bir sonraki şut bende!"' : 'Akif: "Harika denemeydi Ahmet, haydi bir daha!"') +
+              ' İpucu: ' + currentQuestion.num1 + ' × ' + currentQuestion.num2 + ' = ' + currentQuestion.correct;
+          }
+        }, 300);
+
+        setTimeout(function() {
+          currentShooter = currentShooter === 'akif' ? 'ahmet' : 'akif';
+          nextQuestion();
+        }, 2200);
+      }
+
+      const scoreAkif = document.getElementById('scoreAkif');
+      const scoreAhmet = document.getElementById('scoreAhmet');
+      const scorePoints = document.getElementById('scorePoints');
+      if (scoreAkif) scoreAkif.innerText = akifGoals + ' GOL';
+      if (scoreAhmet) scoreAhmet.innerText = ahmetGoals + ' GOL';
+      if (scorePoints) scorePoints.innerText = points;
+    }
+
+    // Direct startup on DOM ready or immediate
+    function initGame() {
+      initCanvas();
+      nextQuestion();
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initGame);
+    } else {
+      initGame();
+    }
+  </script>
+</body>
+</html>
